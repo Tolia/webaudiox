@@ -4,7 +4,6 @@
 <script src='../lib/webaudiox.loadbuffer.js'></script>
 <script src='../lib/webaudiox.bytetonormalizedfloat32array.js'></script>
 <script src='../lib/webaudiox.analyser2volume.js'></script>
-<script src='./helpers/webaudiox.analyser2canvas.js'></script>
 
 <body style='margin: 0; overflow: hidden; background-color:#222'>
 <script>
@@ -12,7 +11,7 @@
 
   // Create lineOut
   var lineOut = new WebAudiox.LineOut(context)
-  lineOut.volume  = 0.2
+  lineOut.volume  = 1
 
   var analyser  = context.createAnalyser()
   analyser.connect(lineOut.destination);
@@ -21,29 +20,25 @@
   // load a sound and play it immediatly
   var audioSRC = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/2361/04_Lines.mp3"
   //"http://www.freesound.org/data/previews/106/106018_1799321-lq.ogg";
-  //"https://s3-us-west-2.amazonaws.com/s.cdpn.io/2361/04_Lines.mp3";
+  
   WebAudiox.loadBuffer(context, audioSRC, function(buffer){
     var source  = context.createBufferSource();
     source.buffer = buffer;
     source.loop = true
     source.connect(lineOut.destination);
-    source.start(0);    
+    source.start(0);
+  }, false, function (progress){
+    dude.progressLoad = progress
   });
-  
-  // create and add the canvas
+
+
   var canvas  = document.createElement('canvas');
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
   var ctx   = canvas.getContext("2d");  
   document.body.appendChild(canvas)
 
-  /**
-   * display an analyser node in a canvas
-   * 
-   * @param  {AnalyserNode} analyser     the analyser node
-   * @param  {Number}   smoothFactor the smooth factor for smoothed volume
-   */
-  WebAudiox.dude = function(analyser, canvas){
+  var Dude = function(analyser, canvas){
     var canvasCtx       = canvas.getContext("2d")
     var analyser2volume = new WebAudiox.Analyser2Volume(analyser)
     var histogram       = new Float32Array(10)
@@ -51,6 +46,7 @@
     var centerY         = canvas.height/2
     var rawValue
     var smoothedValue
+    this.progressLoad = 0
 
     var componentToHex = function (c) {
         var hex = c.toString(16);
@@ -134,9 +130,9 @@
       function EyeConstructor(face,centerX) {
         this.face        = face
         this.centerX     = centerX
-        this.centerY     = face.centerY - face.radiusH*1/4
-        this.minRadius   = face.minRadius/10
-        this.maxRadius   = face.maxRadius/5
+        this.centerY     = face.centerY - face.radiusH*0.1
+        this.minRadius   = face.minRadius*0.025
+        this.maxRadius   = face.maxRadius*0.25
         this.radius      = this.minRadius
       }
       EyeConstructor.prototype.drawPupil = function() {
@@ -204,11 +200,23 @@
       eyeL.draw()
       mouth.setRadius(histogram[0])
       mouth.draw()
+      this.loaderProgress()
+    }
+
+    this.loaderProgress = function() {
+      if (this.progressLoad < 1) {
+        var angle = Math.PI*2*this.progressLoad || 0
+        canvasCtx.beginPath()
+        canvasCtx.arc(face.centerX, face.centerY, face.maxRadius*0.6, 0, angle, true)
+        canvasCtx.strokeStyle = "#fff"
+        canvasCtx.lineWidth   = 1
+        canvasCtx.stroke()
+      }
     }
   }
 
   // create the object
-  var analyser2canvas = new WebAudiox.dude(analyser, canvas)
+  var dude = new Dude(analyser, canvas)
 
   var WebAudiox = WebAudiox || {}
 
@@ -218,7 +226,7 @@
     // clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // put the sound in the canvas
-    analyser2canvas.update()
+    dude.update()
   })
 
 </script></body>
